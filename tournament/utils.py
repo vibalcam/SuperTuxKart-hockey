@@ -1,5 +1,11 @@
+import os
+import pathlib
+
 import pystk
 import numpy as np
+from PIL import Image
+
+HACK_DICT = dict()
 
 
 class Player:
@@ -13,6 +19,24 @@ class Player:
     
     def __call__(self, image, player_info):
         return self.player.act(image, player_info)
+
+
+class DataCollector(object):
+    def __init__(self, destination):
+        self.images = list()
+        self.destination = pathlib.Path(destination)
+
+        # Create dirs
+        os.makedirs(f"{destination}/images", exist_ok=False)
+        os.makedirs(f"{destination}/masks", exist_ok=False)
+
+    def save_frame(self, race, frame, n_players=4):
+        for i in range(n_players):
+            image = race.render_data[i].image
+            Image.fromarray(image).save(f"{self.destination}/images/{i}_{frame}.png")
+
+            mask = race.render_data[i].instance == 134217729
+            Image.fromarray(mask).save(f"{self.destination}/masks/{i}_{frame}.png")
 
 
 class Tournament:
@@ -41,21 +65,35 @@ class Tournament:
         self.k.start()
         self.k.step()
 
-    def play(self, save=None, max_frames=50):
+    def play(self, save_dir=None, max_frames=50):
         state = pystk.WorldState()
-        if save is not None:
-            import PIL.Image
-            import os
-            if not os.path.exists(save):
-                os.makedirs(save)
+        if save_dir is not None:
+            # if not os.path.exists(save_dir):
+            #     os.makedirs(save_dir, exist_ok=False)
+            data_collector = DataCollector(save_dir)
+
+        # To show the agent playing
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1, 1)
 
         for t in range(max_frames):
             print('\rframe %d' % t, end='\r')
 
             state.update()
 
+            # To show the agent playing
+            ax.clear()
+            ax.imshow(self.k.render_data[0].image)
+            plt.pause(1e-3)
+
             list_actions = []
             for i, p in enumerate(self.active_players):
+                # HACK_DICT data
+                HACK_DICT['race'] = self.k
+                HACK_DICT['render_data'] = self.k.render_data[i]
+                HACK_DICT['kart'] = state.karts[i]
+                HACK_DICT['state'] = state
+
                 player = state.players[i]
                 image = np.array(self.k.render_data[i].image)
                 
@@ -66,19 +104,25 @@ class Tournament:
                 
                 list_actions.append(action)
 
-                if save is not None:
-                    PIL.Image.fromarray(image).save(os.path.join(save, 'player%02d_%05d.png' % (i, t)))
+                # if save is not None:
+                #     PIL.Image.fromarray(image).save(os.path.join(save, 'player%02d_%05d.png' % (i, t)))
+
+            # Save data
+            if save_dir is not None:
+                data_collector.save_frame(self.k, t, n_players=len(self.active_players))
 
             s = self.k.step(list_actions)
             if not s:  # Game over
                 break
 
-        if save is not None:
-            import subprocess
-            for i, p in enumerate(self.active_players):
-                dest = os.path.join(save, 'player%02d' % i)
-                output = save + '_player%02d.mp4' % i
-                subprocess.call(['ffmpeg', '-y', '-framerate', '10', '-i', dest + '_%05d.png', output])
+        # Save mp4
+        # if save is not None:
+        #     import subprocess
+        #     for i, p in enumerate(self.active_players):
+        #         dest = os.path.join(save, 'player%02d' % i)
+        #         output = save + '_player%02d.mp4' % i
+        #         subprocess.call(['ffmpeg', '-y', '-framerate', '10', '-i', dest + '_%05d.png', output])
+
         if hasattr(state, 'soccer'):
             return state.soccer.score
         return state.soccer_score

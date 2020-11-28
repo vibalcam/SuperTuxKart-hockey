@@ -35,6 +35,6 @@ if __name__ == '__main__':
             players.append(Player(importlib.import_module(player).HockeyPlayer(i), i % 2))
         
     tournament = Tournament(players)
-    score = tournament.play(save=args.save_loc, max_frames=args.num_frames)
+    score = tournament.play(save_dir=args.save_loc, max_frames=args.num_frames)
     tournament.close()
     print('Final score', score)
