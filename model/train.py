@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torchvision
 
-from .models import Detector, save_model, FocalLoss
+from .models import Detector, save_model, FocalLoss, load_model
 from .utils import load_detection_data, accuracy
 import torch.utils.tensorboard as tb
 
@@ -24,7 +24,7 @@ def train(args):
     # Hyperparameters
     lrs = [1e-3]
     optimizers = ["adam"]
-    n_epochs = 40
+    n_epochs = 120
     batch_size = 32
     num_workers = 0 if args.debug else 4
     # properties = [(True, True, True)]
@@ -32,17 +32,12 @@ def train(args):
     # dimensions = [[64, 128, 256]]
     dimensions = [[32, 64, 128]]
     gammas = [2]
-    loss_sizes_weight = [0.01]
+    # loss_sizes_weight = [0.01]
+    loss_sizes_weight = [0]
 
     # loader_valid = load_detection_data('dense_data/valid', num_workers=num_workers, batch_size=batch_size, drop_last=False)
-    # todo add resize
     transforms = [
         torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)), torchvision.transforms.ToTensor()])
-        # dense_transforms.Compose(
-        #     [dense_transforms.RandomHorizontalFlip(), dense_transforms.ToTensor()]),
-        # dense_transforms.Compose(
-        #     [dense_transforms.ColorJitter(0.5, 0.5, 0.5, 0.1), dense_transforms.RandomHorizontalFlip(),
-        #      dense_transforms.ToTensor()])
     ]
     for t in range(len(transforms)):
         # Get data
@@ -52,15 +47,13 @@ def train(args):
         for size_weight in loss_sizes_weight:
             for gamma in gammas:
                 # Initialize loss
-                # w = torch.as_tensor(DENSE_CLASS_DISTRIBUTION) ** (-args.gamma)
-                # loss = FocalLoss(gamma=gamma, weight=w / w.mean()).to(device)
                 if gamma == 0:
                     loss_centers = torch.nn.BCEWithLogitsLoss().to(device)
                 else:
                     loss_centers = FocalLoss(gamma=gamma, reduce=True).to(device)
                 loss_sizes = torch.nn.MSELoss(reduction='none').to(device)
 
-                for scheduler_type in ["max"]:
+                for scheduler_type in ["minLoss"]:
                     for dim in dimensions:
                         for prop in properties:
                             for optim_name in optimizers:
@@ -77,9 +70,7 @@ def train(args):
                                     model = Detector(dim_layers=dim, residual=prop[0], skip_connections=prop[1],
                                                      input_normalization=prop[2], n_output=3)
                                     if args.continue_training:
-                                        from os import path
-                                        model.load_state_dict(
-                                            torch.load(path.join(path.dirname(path.abspath(__file__)), 'det.th')))
+                                        model = load_model()
                                     model = model.to(device)
 
                                     if optim_name == "sgd":
@@ -118,8 +109,6 @@ def train(args):
                                             loss_val_sizes = loss_sizes(pred_sizes, sizes)
 
                                             # Combine losses
-                                            # mask = sizes > 0
-                                            # loss_val_sizes = loss_val_sizes[mask].mean()
                                             loss_val_sizes = (loss_val_sizes * label[:, None]).mean()
                                             loss_val = loss_val_classes + size_weight * loss_val_sizes
 
@@ -135,8 +124,7 @@ def train(args):
 
                                         # scheduler.step()
                                         if scheduler_type == "minLoss":
-                                            scheduler.step(np.mean(train_size_loss))
-                                            # scheduler.step(np.mean(train_loss))
+                                            scheduler.step(np.mean(train_loss))
                                         # elif scheduler_type == "maxAcc":
                                         #     scheduler.step(valid_acc.global_accuracy)
                                         # else:
@@ -156,7 +144,6 @@ def train(args):
                                                                     global_step=global_step)
                                             train_logger.add_scalar('loss_classes', np.mean(train_classes_loss),
                                                                     global_step=global_step)
-                                            # log(valid_logger, img, label, o, global_step)
                                             train_logger.add_scalar('lr', optimizer.param_groups[0]['lr'],
                                                                     global_step=global_step)
 

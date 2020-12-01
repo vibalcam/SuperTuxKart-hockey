@@ -81,11 +81,6 @@ class Tournament:
 
             state.update()
 
-            # To show the agent playing
-            ax.clear()
-            ax.imshow(self.k.render_data[0].image)
-            plt.pause(1e-3)
-
             list_actions = []
             for i, p in enumerate(self.active_players):
                 # HACK_DICT data
@@ -106,6 +101,20 @@ class Tournament:
 
                 # if save is not None:
                 #     PIL.Image.fromarray(image).save(os.path.join(save, 'player%02d_%05d.png' % (i, t)))
+
+            # To show the agent playing
+            ax.clear()
+            ax.imshow(self.k.render_data[0].image)
+            # Show player prediction
+            if 'predicted' in HACK_DICT:
+                pred = HACK_DICT['predicted']       # w, h [-1, 1]
+                pred_w = HACK_DICT['predicted_width']        # w [0, 1]
+                pred = ((pred[0] + 1) / 2 * self.graphics_config.screen_width, (pred[1] + 1) / 2 * self.graphics_config.screen_height)
+                circle = plt.Circle(pred, radius=pred_w * self.graphics_config.screen_width, fill=False)
+                circle2 = plt.Circle(pred, radius=3, fill=True, color='red')
+                ax.add_patch(circle)
+                ax.add_patch(circle2)
+            plt.pause(1e-3)
 
             # Save data
             if save_dir is not None:

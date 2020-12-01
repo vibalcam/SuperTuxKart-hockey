@@ -177,10 +177,11 @@ class Detector(torch.nn.Module):
 
         return pred, sizes
 
-    def detect(self, image, max_pool_ks=7, min_score=0, max_det=1):
+    def detect(self, image, max_pool_ks=7, min_score=0.2, max_det=1):
         """
            Implement object detection here.
            @image: 3 x H x W image
+           @min_socre: minimum score for a detection to be returned (sigmoid from 0 to 1)
            @return: One list of detections [(score, cx, cy, w, h), ...]
            Return Make sure to return three python lists of tuples of (float, int, int, float, float) and not a pytorch
                  scalar. Otherwise pytorch might keep a computation graph in the background and your program will run
