@@ -40,11 +40,12 @@ class DetectionSuperTuxDataset(Dataset):
         width = torch.max(torch.sum(img, 1))
         width_mask = mask.clone()
         width_mask[width_mask == 1] = width
-        height = torch.max(torch.sum(img, 0))
-        height_mask = mask.clone()
-        height_mask[width_mask == 1] = height
+        # height = torch.max(torch.sum(img, 0))
+        # height_mask = mask.clone()
+        # height_mask[width_mask == 1] = height
 
-        return img, mask.squeeze(0), np.concatenate([width_mask, height_mask], 0)
+        # return img, mask.squeeze(0), np.concatenate([width_mask, height_mask], 0)
+        return img, mask.squeeze(0), width_mask.squeeze(0)
 
 
 def accuracy(pred, label):

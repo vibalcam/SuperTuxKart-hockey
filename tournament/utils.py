@@ -110,7 +110,7 @@ class Tournament:
                 pred = HACK_DICT['predicted']       # w, h [-1, 1]
                 pred_w = HACK_DICT['predicted_width']        # w [0, 1]
                 pred = ((pred[0] + 1) / 2 * self.graphics_config.screen_width, (pred[1] + 1) / 2 * self.graphics_config.screen_height)
-                circle = plt.Circle(pred, radius=pred_w * self.graphics_config.screen_width, fill=False)
+                circle = plt.Circle(pred, radius=(pred_w / 2) * self.graphics_config.screen_width, fill=False)
                 circle2 = plt.Circle(pred, radius=3, fill=True, color='red')
                 ax.add_patch(circle)
                 ax.add_patch(circle2)

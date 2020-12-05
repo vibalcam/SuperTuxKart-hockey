@@ -102,7 +102,7 @@ class Detector(torch.nn.Module):
             else:
                 return self.net(x)
 
-    def __init__(self, dim_layers=[32, 64, 128], n_input=3, n_output=3, input_normalization: bool = True,
+    def __init__(self, dim_layers=[32, 64, 128], n_input=3, n_output=2, input_normalization: bool = True,
                  skip_connections: bool = True, residual: bool = False):
         super().__init__()
         self.skip_connections = skip_connections
@@ -173,9 +173,10 @@ class Detector(torch.nn.Module):
                 skip = self.skip_connections
 
         pred = x[:, 0, :h, :w]
-        sizes = x[:, 1:, :h, :w]
+        # sizes = x[:, 1:, :h, :w]
+        width = x[:, 1, :h, :w]
 
-        return pred, sizes
+        return pred, width
 
     def detect(self, image, max_pool_ks=7, min_score=0.2, max_det=1):
         """
@@ -187,17 +188,16 @@ class Detector(torch.nn.Module):
                  scalar. Otherwise pytorch might keep a computation graph in the background and your program will run
                  out of memory.
         """
-        # heatmap, sizes = self(image[None])  # tuple 3xHxW 0-1 heatmap, 1 are classes, then width and height
-        # heatmap = torch.sigmoid(heatmap.squeeze(0))
-        # sizes = sizes.squeeze(0)
-        # return [[peak + ((sizes[0, peak[2], peak[1]]).item(), (sizes[1, peak[2], peak[1]]).item())
-        #          for peak in extract_peak((heatmap[dim, ...]).squeeze(0), max_pool_ks, min_score, 30)]
-        #         for dim in range(3)]
         heatmap, sizes = self(image[None])  # tuple 1x1xHxW 0-1 heatmap, 1 are classes, then width and height
         heatmap = torch.sigmoid(heatmap.squeeze(0).squeeze(0))  # HxW 0-1 heatmap
-        sizes = sizes.squeeze(0)
-        return [peak + ((sizes[0, peak[2], peak[1]]).item(), (sizes[1, peak[2], peak[1]]).item())
+        width = sizes.squeeze(0)
+        # return [peak + ((width[0, peak[2], peak[1]]).item(), (sizes[1, peak[2], peak[1]]).item())
+        #         for peak in extract_peak(heatmap, max_pool_ks, min_score, max_det)]
+        return [(peak[0], peak[1], peak[2], (width[peak[2], peak[1]]).item())
                 for peak in extract_peak(heatmap, max_pool_ks, min_score, max_det)]
+        # width = torch.max(torch.sum((heatmap > min_score).float(), 1))
+        # return [(peak[0], peak[1], peak[2], width)
+        #         for peak in extract_peak(heatmap, max_pool_ks, min_score, max_det)]
 
 
 class FocalLoss(torch.nn.Module):

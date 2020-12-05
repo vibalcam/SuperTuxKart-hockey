@@ -39,8 +39,8 @@ class HockeyPlayer:
        You may request to play with a different kart.
        Call `python3 -c "import pystk; pystk.init(pystk.GraphicsConfig.ld()); print(pystk.list_karts())"` to see all values.
     """
-    # todo ideas: find best kart
-    kart = "kiki"
+    # ideas: find best kart
+    kart = "wilbert"
 
     def __init__(self, player_id=0):
         """
@@ -48,7 +48,7 @@ class HockeyPlayer:
         The player_id starts at 0 and increases by one for each player added. You can use the player id to figure out your team (player_id % 2), or assign different roles to different agents.
         """
         # For training select player at random
-        self.kart = ALL_PLAYERS_FILTERED[np.random.choice(len(ALL_PLAYERS_FILTERED))]
+        # self.kart = ALL_PLAYERS_FILTERED[np.random.choice(len(ALL_PLAYERS_FILTERED))]
 
         # Player info variables
         self.player_id = player_id
@@ -59,7 +59,7 @@ class HockeyPlayer:
         self.initialize_status()
 
         # Load model
-        self.model = load_model('det_saved.th')
+        self.model = load_model('det_final.th')
         self.model.eval()
         # Resize image to 128x128 and transform to tensor
         self.transform = torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)),
@@ -175,7 +175,7 @@ class HockeyPlayer:
         theta_goal = np.arccos(np.dot(u, v))
         signed_theta_self_goal_deg = np.degrees(-np.sign(np.cross(u, v)) * theta_goal)
 
-        # todo ideas: if closer to goal, more important to have angle of goal
+        # ideas: if closer to goal, more important to have angle of goal
         # todo ideas: width and height can be used to know how close is the puck
         dist_opp_goal = (np.clip(dist_opp_goal, 10, 100) - 10) / 90  # [0, 1]
         if self.step_back == 0 and (self.lost_cooldown == 0 or puck_visible):
@@ -215,12 +215,12 @@ class HockeyPlayer:
 
         if self.position == 1:
             # If second car, wait more until start
-            if self.step < 20:
+            if self.step < 30:
                 acceleration = 0
                 brake = False
             # If second car, act as goalie
-            if dist_own_goal > 80:
-                self.step_back = 15
+            # if dist_own_goal > 80:
+            #     self.step_back = 15
 
         # Steer and drift
         steer = np.clip(aim_point * 5, -1, 1)

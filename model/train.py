@@ -19,7 +19,7 @@ def train(args):
     device = torch.device('cuda' if torch.cuda.is_available() and not (args.cpu or args.debug) else 'cpu')
     print(device)
     model = None
-    best_acc = 0
+    best_loss = 100
 
     # Hyperparameters
     lrs = [1e-3]
@@ -33,11 +33,12 @@ def train(args):
     dimensions = [[32, 64, 128]]
     gammas = [2]
     # loss_sizes_weight = [0.01]
-    loss_sizes_weight = [0]
+    loss_sizes_weight = [0.1]
 
     # loader_valid = load_detection_data('dense_data/valid', num_workers=num_workers, batch_size=batch_size, drop_last=False)
     transforms = [
-        torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)), torchvision.transforms.ToTensor()])
+        torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)), torchvision.transforms.ToTensor()]),
+        # torchvision.transforms.Compose([torchvision.transforms.Resize((240, 240)), torchvision.transforms.ToTensor()])
     ]
     for t in range(len(transforms)):
         # Get data
@@ -60,7 +61,7 @@ def train(args):
                                 for lr in lrs:
                                     # Tensorboard
                                     global_step = 0
-                                    name_model = f"{t + 1}/{optim_name}/{lr}/{dim}/" \
+                                    name_model = f"{t + 2}/{optim_name}/{lr}/{dim}/" \
                                                  f"residual&skip&inputNorm={prop[0]}&{prop[1]}&{prop[2]}/{scheduler_type}/" \
                                                  f"gamma={gamma}/size_weight={size_weight}/"
                                     train_logger = tb.SummaryWriter(f"{args.log_dir}/train/{name_model}")
@@ -68,7 +69,7 @@ def train(args):
 
                                     del model
                                     model = Detector(dim_layers=dim, residual=prop[0], skip_connections=prop[1],
-                                                     input_normalization=prop[2], n_output=3)
+                                                     input_normalization=prop[2])
                                     if args.continue_training:
                                         model = load_model()
                                     model = model.to(device)
@@ -138,7 +139,8 @@ def train(args):
                                                                     global_step=global_step)
                                             train_logger.add_scalar('acc_sizes', np.mean(acc_sizes),
                                                                     global_step=global_step)
-                                            train_logger.add_scalar('loss', np.mean(train_loss),
+                                            cur_train_loss = np.mean(train_loss)
+                                            train_logger.add_scalar('loss', cur_train_loss,
                                                                     global_step=global_step)
                                             train_logger.add_scalar('loss_size', np.mean(train_size_loss),
                                                                     global_step=global_step)
@@ -148,9 +150,9 @@ def train(args):
                                                                     global_step=global_step)
 
                                             # Save best model
-                                            if cur_acc_pred > best_acc:
+                                            if cur_train_loss < best_loss:
                                                 save_model(model, 'det_best.th')
-                                                best_acc = cur_acc_pred
+                                                best_loss = cur_train_loss
 
                                         # Compute validation accuracy
                                         # if (epoch + 1) % 10 == 0:
