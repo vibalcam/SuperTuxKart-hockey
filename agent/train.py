@@ -24,7 +24,7 @@ def train(args):
     # Hyperparameters
     lrs = [1e-3]
     optimizers = ["adam"]
-    n_epochs = 120
+    n_epochs = 400
     batch_size = 32
     num_workers = 0 if args.debug else 4
     # properties = [(True, True, True)]
@@ -61,7 +61,7 @@ def train(args):
                                 for lr in lrs:
                                     # Tensorboard
                                     global_step = 0
-                                    name_model = f"{t + 2}/{optim_name}/{lr}/{dim}/" \
+                                    name_model = f"{t + 3}/{optim_name}/{lr}/{dim}/" \
                                                  f"residual&skip&inputNorm={prop[0]}&{prop[1]}&{prop[2]}/{scheduler_type}/" \
                                                  f"gamma={gamma}/size_weight={size_weight}/"
                                     train_logger = tb.SummaryWriter(f"{args.log_dir}/train/{name_model}")

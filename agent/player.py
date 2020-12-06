@@ -1,9 +1,9 @@
 import numpy as np
+import torch
 import torchvision
 from PIL import Image
 
-from model.models import load_model
-from tournament.utils import HACK_DICT
+from agent.models import load_model
 
 ALL_PLAYERS = ['adiumy', 'amanda', 'beastie', 'emule', 'gavroche', 'gnu', 'hexley', 'kiki', 'konqi', 'nolok',
                'pidgin', 'puffy', 'sara_the_racer', 'sara_the_wizard', 'suzanne', 'tux', 'wilber', 'xue']
@@ -18,6 +18,10 @@ LOST_COOLDOWN_STEPS = 10
 START_STEPS = 40
 LAST_PUCK_DURATION = 4
 # ALPHA_STEER = 0.95
+
+# True if testing to use HACK_DICT
+HACK_ON = True
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def norm(vector):
@@ -42,6 +46,12 @@ class HockeyPlayer:
     # ideas: find best kart
     kart = "wilbert"
 
+    # Load model
+    model = load_model('det_final.th').to(device)
+    # Resize image to 128x128 and transform to tensor
+    transform = torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)),
+                                                torchvision.transforms.ToTensor()])
+
     def __init__(self, player_id=0):
         """
         Set up a soccer player.
@@ -58,14 +68,7 @@ class HockeyPlayer:
         # Timing and status variables
         self.initialize_status()
 
-        # Load model
-        self.model = load_model('det_final.th')
-        self.model.eval()
-        # Resize image to 128x128 and transform to tensor
-        self.transform = torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)),
-                                                         torchvision.transforms.ToTensor()])
-
-        print(self.kart)
+        print(f"{self.kart}, {device}, team:{self.team}")
 
     def initialize_status(self):
         # Timing variables
@@ -121,8 +124,8 @@ class HockeyPlayer:
         # signed_theta_puck_deg = np.degrees(-np.sign(np.cross(u, v)) * theta_puck)
 
         # Get predicted puck position
-        pred = self.model.detect(self.transform(Image.fromarray(image)), max_pool_ks=7, min_score=0.2,
-                                 max_det=15)  # (score, cx, cy, w, h)
+        img = self.transform(Image.fromarray(image)).to(device)
+        pred = self.model.detect(img, max_pool_ks=7, min_score=0.2, max_det=15)  # (score, cx, cy, w, h)
         puck_visible = len(pred) > 0
         if puck_visible:
             # if self.step_lost + 1 == self.step:
@@ -148,8 +151,11 @@ class HockeyPlayer:
             self.step_lost = self.step
 
             # To show when testing
-            HACK_DICT['predicted'] = (puck_pos, (pred[0])[2] / 64 - 1)
-            HACK_DICT['predicted_width'] = puck_size
+            if HACK_ON and self.position == 0:
+                from tournament.utils import HACK_DICT
+                HACK_DICT['id'] = self.player_id
+                HACK_DICT['predicted'] = (puck_pos, (pred[0])[2] / 64 - 1)
+                HACK_DICT['predicted_width'] = puck_size
         elif self.step - self.step_lost < LAST_PUCK_DURATION:
             self.normal = False
             puck_pos = self.puck_last_pos
@@ -183,7 +189,7 @@ class HockeyPlayer:
                 aim_point = puck_pos + np.sign(puck_pos - signed_theta_opp_goal_deg / 100) * 0.4 * (1 - dist_opp_goal)
             else:
                 aim_point = puck_pos
-            print(f"{aim_point}, {puck_pos}")
+            # print(f"{aim_point}, {puck_pos}")
             # aim_point = puck_pos
             if self.step_lost == self.step:
                 # If have vision of the puck
@@ -213,14 +219,15 @@ class HockeyPlayer:
                 acceleration = 0.5
                 brake = False
 
-        if self.position == 1:
+        if self.position == 1 and self.step < 25:
             # If second car, wait more until start
-            if self.step < 30:
-                acceleration = 0
-                brake = False
+            acceleration = 0
+            brake = False
             # If second car, act as goalie
             # if dist_own_goal > 80:
             #     self.step_back = 15
+        # else:
+        #     acceleration = 1 if self.step < START_STEPS else acceleration
 
         # Steer and drift
         steer = np.clip(aim_point * 5, -1, 1)

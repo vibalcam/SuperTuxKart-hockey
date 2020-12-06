@@ -65,7 +65,7 @@ class Tournament:
         self.k.start()
         self.k.step()
 
-    def play(self, save_dir=None, max_frames=50):
+    def play(self, save_dir=None, max_frames=50, show=False):
         state = pystk.WorldState()
         if save_dir is not None:
             # if not os.path.exists(save_dir):
@@ -73,8 +73,9 @@ class Tournament:
             data_collector = DataCollector(save_dir)
 
         # To show the agent playing
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(1, 1)
+        if show:
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(1, 1)
 
         for t in range(max_frames):
             print('\rframe %d' % t, end='\r')
@@ -103,18 +104,20 @@ class Tournament:
                 #     PIL.Image.fromarray(image).save(os.path.join(save, 'player%02d_%05d.png' % (i, t)))
 
             # To show the agent playing
-            ax.clear()
-            ax.imshow(self.k.render_data[0].image)
-            # Show player prediction
-            if 'predicted' in HACK_DICT:
-                pred = HACK_DICT['predicted']       # w, h [-1, 1]
-                pred_w = HACK_DICT['predicted_width']        # w [0, 1]
-                pred = ((pred[0] + 1) / 2 * self.graphics_config.screen_width, (pred[1] + 1) / 2 * self.graphics_config.screen_height)
-                circle = plt.Circle(pred, radius=(pred_w / 2) * self.graphics_config.screen_width, fill=False)
-                circle2 = plt.Circle(pred, radius=3, fill=True, color='red')
-                ax.add_patch(circle)
-                ax.add_patch(circle2)
-            plt.pause(1e-3)
+            if show:
+                id_show = 0 if 'id' not in HACK_DICT else HACK_DICT['id']
+                ax.clear()
+                ax.imshow(self.k.render_data[id_show].image)
+                # Show player prediction
+                if 'predicted' in HACK_DICT:
+                    pred = HACK_DICT['predicted']       # w, h [-1, 1]
+                    pred_w = HACK_DICT['predicted_width']        # w [0, 1]
+                    pred = ((pred[0] + 1) / 2 * self.graphics_config.screen_width, (pred[1] + 1) / 2 * self.graphics_config.screen_height)
+                    circle = plt.Circle(pred, radius=(pred_w / 2) * self.graphics_config.screen_width, fill=False)
+                    circle2 = plt.Circle(pred, radius=3, fill=True, color='red')
+                    ax.add_patch(circle)
+                    ax.add_patch(circle2)
+                plt.pause(1e-3)
 
             # Save data
             if save_dir is not None:
