@@ -46,12 +46,6 @@ class HockeyPlayer:
     # ideas: find best kart
     kart = "wilbert"
 
-    # Load model
-    model = load_model('det_final.th').to(device)
-    # Resize image to 128x128 and transform to tensor
-    transform = torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)),
-                                                torchvision.transforms.ToTensor()])
-
     def __init__(self, player_id=0):
         """
         Set up a soccer player.
@@ -67,6 +61,12 @@ class HockeyPlayer:
 
         # Timing and status variables
         self.initialize_status()
+
+        # Load model
+        self.model = load_model('det_final.th').to(device)
+        # Resize image to 128x128 and transform to tensor (same as in training)
+        self.transform = torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)),
+                                                         torchvision.transforms.ToTensor()])
 
         print(f"{self.kart}, {device}, team:{self.team}")
 
@@ -183,17 +183,19 @@ class HockeyPlayer:
 
         # ideas: if closer to goal, more important to have angle of goal
         # todo ideas: width and height can be used to know how close is the puck
-        dist_opp_goal = (np.clip(dist_opp_goal, 10, 100) - 10) / 90  # [0, 1]
+        # ideas: make the relation of closer and importance of the goal non linear (change when close not as impactful)
+        dist_opp_goal = ((np.clip(dist_opp_goal, 10, 100) - 10) / 90) + 1  # [1, 2]
         if self.step_back == 0 and (self.lost_cooldown == 0 or puck_visible):
-            if np.abs(signed_theta_opp_goal_deg) < 90:
-                aim_point = puck_pos + np.sign(puck_pos - signed_theta_opp_goal_deg / 100) * 0.4 * (1 - dist_opp_goal)
+            if 20 < np.abs(signed_theta_opp_goal_deg) < 120:
+                importance_dist = 1 / dist_opp_goal ** 3
+                aim_point = puck_pos + np.sign(puck_pos - signed_theta_opp_goal_deg / 100) * 0.3 * importance_dist
             else:
                 aim_point = puck_pos
             # print(f"{aim_point}, {puck_pos}")
             # aim_point = puck_pos
             if self.step_lost == self.step:
                 # If have vision of the puck
-                acceleration = 0.75
+                acceleration = 0.75 if norm(player_info.kart.velocity) < 15 else 0
                 brake = False
             else:
                 # If no vision of the puck
@@ -230,7 +232,7 @@ class HockeyPlayer:
         #     acceleration = 1 if self.step < START_STEPS else acceleration
 
         # Steer and drift
-        steer = np.clip(aim_point * 5, -1, 1)
+        steer = np.clip(aim_point * 15, -1, 1)
         # steer = np.clip(aim_point * 5, -1, 1) * ALPHA_STEER + self.last_steer * (1 - ALPHA_STEER)
         # self.last_steer = steer
         drift = np.abs(aim_point) > 0.2

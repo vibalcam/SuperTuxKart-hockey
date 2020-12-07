@@ -39,6 +39,8 @@ def train(args):
     transforms = [
         torchvision.transforms.Compose([torchvision.transforms.Resize((128, 128)), torchvision.transforms.ToTensor()]),
         # torchvision.transforms.Compose([torchvision.transforms.Resize((240, 240)), torchvision.transforms.ToTensor()])
+        # torchvision.transforms.Compose([torchvision.transforms.RandomHorizontalFlip(),
+        #                                 torchvision.transforms.Resize((128, 128)), torchvision.transforms.ToTensor()]),
     ]
     for t in range(len(transforms)):
         # Get data
