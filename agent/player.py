@@ -21,6 +21,8 @@ LAST_PUCK_DURATION = 4
 
 # True if testing to use HACK_DICT
 HACK_ON = True
+if HACK_ON:
+    from tournament.utils import HACK_DICT
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -152,7 +154,9 @@ class HockeyPlayer:
 
             # To show when testing
             if HACK_ON and self.position == 0:
-                from tournament.utils import HACK_DICT
+                if HACK_DICT['show_mask']:
+                    HACK_DICT['pred_mask'] = self.model(img[None])[0].squeeze(0).unsqueeze(2)\
+                        .detach().repeat(1, 1, 3).cpu()
                 HACK_DICT['id'] = self.player_id
                 HACK_DICT['predicted'] = (puck_pos, (pred[0])[2] / 64 - 1)
                 HACK_DICT['predicted_width'] = puck_size
@@ -182,7 +186,7 @@ class HockeyPlayer:
         signed_theta_self_goal_deg = np.degrees(-np.sign(np.cross(u, v)) * theta_goal)
 
         # ideas: if closer to goal, more important to have angle of goal
-        # todo ideas: width and height can be used to know how close is the puck
+        # todo ideas: width can be used to know how close is the puck
         # ideas: make the relation of closer and importance of the goal non linear (change when close not as impactful)
         dist_opp_goal = ((np.clip(dist_opp_goal, 10, 100) - 10) / 90) + 1  # [1, 2]
         if self.step_back == 0 and (self.lost_cooldown == 0 or puck_visible):

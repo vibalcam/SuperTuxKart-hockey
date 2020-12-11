@@ -22,7 +22,9 @@ class Player:
 
 
 class DataCollector(object):
-    def __init__(self, destination):
+    tmp_loc = 'tmp'
+
+    def __init__(self, destination=tmp_loc):
         self.images = list()
         self.destination = pathlib.Path(destination)
 
@@ -37,6 +39,31 @@ class DataCollector(object):
 
             mask = race.render_data[i].instance == 134217729
             Image.fromarray(mask).save(f"{self.destination}/masks/{i}_{frame}.png")
+
+
+def update_chart(plt, ax1, ax2, tournament, frame):
+    id_show = 0 if 'id' not in HACK_DICT else HACK_DICT['id']
+    ax1.clear()
+    ax1.imshow(tournament.k.render_data[id_show].image)
+    # Show player prediction
+    if 'predicted' in HACK_DICT:
+        pred = HACK_DICT['predicted']  # w, h [-1, 1]
+        pred_w = HACK_DICT['predicted_width']  # w [0, 1]
+        pred = (
+        (pred[0] + 1) / 2 * tournament.graphics_config.screen_width, (pred[1] + 1) / 2 * tournament.graphics_config.screen_height)
+        circle = plt.Circle(pred, radius=(pred_w / 2) * tournament.graphics_config.screen_width, fill=False)
+        circle2 = plt.Circle(pred, radius=3, fill=True, color='red')
+        ax1.add_patch(circle)
+        ax1.add_patch(circle2)
+
+    # Show predicted mask
+    if ax2 is not None:
+        ax2.clear()
+        ax2.imshow(HACK_DICT['pred_mask'])
+    plt.pause(1e-3)
+
+    # Save fig
+    # plt.savefig(f"tmp/{frame}.png")
 
 
 class Tournament:
@@ -65,17 +92,20 @@ class Tournament:
         self.k.start()
         self.k.step()
 
-    def play(self, save_dir=None, max_frames=50, show=False):
+    def play(self, save_dir=None, max_frames=50, show=False, save_mp4=None, show_mask=False):
         state = pystk.WorldState()
         if save_dir is not None:
-            # if not os.path.exists(save_dir):
-            #     os.makedirs(save_dir, exist_ok=False)
             data_collector = DataCollector(save_dir)
+        if save_mp4 is not None:
+            data_collector = DataCollector()
 
         # To show the agent playing
         if show:
             import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(1, 1)
+            fig, ax1 = plt.subplots(1, 2 if show_mask else 1)
+            ax2 = None
+            if show_mask:
+                (ax1, ax2) = ax1
 
         for t in range(max_frames):
             print('\rframe %d' % t, end='\r')
@@ -89,6 +119,7 @@ class Tournament:
                 HACK_DICT['render_data'] = self.k.render_data[i]
                 HACK_DICT['kart'] = state.karts[i]
                 HACK_DICT['state'] = state
+                HACK_DICT['show_mask'] = show_mask
 
                 player = state.players[i]
                 image = np.array(self.k.render_data[i].image)
@@ -100,27 +131,12 @@ class Tournament:
                 
                 list_actions.append(action)
 
-                # if save is not None:
-                #     PIL.Image.fromarray(image).save(os.path.join(save, 'player%02d_%05d.png' % (i, t)))
-
             # To show the agent playing
             if show:
-                id_show = 0 if 'id' not in HACK_DICT else HACK_DICT['id']
-                ax.clear()
-                ax.imshow(self.k.render_data[id_show].image)
-                # Show player prediction
-                if 'predicted' in HACK_DICT:
-                    pred = HACK_DICT['predicted']       # w, h [-1, 1]
-                    pred_w = HACK_DICT['predicted_width']        # w [0, 1]
-                    pred = ((pred[0] + 1) / 2 * self.graphics_config.screen_width, (pred[1] + 1) / 2 * self.graphics_config.screen_height)
-                    circle = plt.Circle(pred, radius=(pred_w / 2) * self.graphics_config.screen_width, fill=False)
-                    circle2 = plt.Circle(pred, radius=3, fill=True, color='red')
-                    ax.add_patch(circle)
-                    ax.add_patch(circle2)
-                plt.pause(1e-3)
+                update_chart(plt, ax1, ax2, self, t)
 
             # Save data
-            if save_dir is not None:
+            if save_dir is not None or save_mp4 is not None:
                 data_collector.save_frame(self.k, t, n_players=len(self.active_players))
 
             s = self.k.step(list_actions)
@@ -128,12 +144,20 @@ class Tournament:
                 break
 
         # Save mp4
-        # if save is not None:
+        # if save_mp4 is not None:
+        #     # Does not work in windows
+        #     # import ffmpeg
+        #     import shutil
         #     import subprocess
         #     for i, p in enumerate(self.active_players):
-        #         dest = os.path.join(save, 'player%02d' % i)
-        #         output = save + '_player%02d.mp4' % i
-        #         subprocess.call(['ffmpeg', '-y', '-framerate', '10', '-i', dest + '_%05d.png', output])
+        #         # ffmpeg.input(f'/{DataCollector.tmp_loc}/images/{i}_*.png', pattern_type='glob', framerate=25) \
+        #         #     .output(f'{save_mp4}.mp4')\
+        #         #     .run()
+        #         data_loc = f"tmp/images/{i}"
+        #         dest = os.path.join(save_mp4, 'player%02d' % i)
+        #         output = save_mp4 + '_player%02d.mp4' % i
+        #         subprocess.call(['ffmpeg', '-y', '-framerate', '10', '-i', f'{data_loc}_%05d.png', output])
+        #     shutil.rmtree(f'/{DataCollector.tmp_loc}')
 
         if hasattr(state, 'soccer'):
             return state.soccer.score
