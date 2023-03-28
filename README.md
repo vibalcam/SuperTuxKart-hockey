@@ -1,6 +1,6 @@
-# Final Project: SuperTuxKart
+# Deep SuperTuxKart AI
 
-Deep Learning AI, based in Fully Convolutional Neural Networks, to play autonomously the SuperTuxKart hockey game
+Deep Learning AI, based on Fully Convolutional Neural Networks, to play autonomously the SuperTuxKart hockey game
 
 It uses a "aim-point" controller as agent. The controller first uses a Fully Convolutional Neural Network to predict the location of the puck given the image. 
 It the uses this information and some heuristics to decide what actions to take.
